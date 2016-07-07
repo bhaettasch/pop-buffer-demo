@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>POP Buffer Demo</title>
+
+    <link rel="stylesheet" href="main.css" />
+
+    <!-- load libraries -->
+    <script type="text/javascript" src="script/lib/glMatrix.min.js"></script>
+    <script type="text/javascript" src="script/lib/glUtils.js"></script>
+
+    <!-- load app scripts -->
+    <script type="text/javascript" src="script/drawer.js"></script>
+    <script type="text/javascript" src="script/loader.js"></script>
+    <script type="text/javascript" src="script/helper.js"></script>
+
+    <script id="triangle-vs" type="x-shader/x-vertex">
+        attribute vec3 aVertexPosition;
+        attribute vec3 aVertexNormal;
+
+        uniform mat4 uMVMatrix;
+        uniform mat4 uPMatrix;
+        uniform mat3 uNMatrix;
+
+        uniform vec3 uAmbientColor;
+        uniform vec3 uLightingDirection;
+        uniform vec3 uDirectionalColor;
+        varying vec3 vLightWeighting;
+        varying vec3 vVertexColor;
+
+        void main() {
+            gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+
+            vec3 transformedNormal = uNMatrix * aVertexNormal;
+            float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
+            vLightWeighting = clamp(uAmbientColor + uDirectionalColor * directionalLightWeighting, vec3(0.0), vec3(1.0));
+
+            vVertexColor = vec3(1.0);
+        }
+    </script>
+
+
+    <script id="triangle-fs" type="x-shader/x-fragment">
+        precision mediump float;
+
+        varying vec3 vLightWeighting;
+        varying vec3 vVertexColor;
+
+        void main() {
+            gl_FragColor = vec4(vVertexColor * vLightWeighting, 1.0);
+        }
+    </script>
+
+    <!-- Start App -->
+    <script type="text/javascript">
+        //When DOM loading is complete:
+        function start() {
+            // get canvas and make it a global variable
+            canvas = document.getElementById('mainCanvas');
+
+            // try to get context and make it a global variable
+            gl = WebGLUtils.create3DContext(canvas, {preserveDrawingBuffer:true});
+            if (!gl) {
+                alert("Dieser Browser unterstützt leider kein WebGL oder es ist deaktiviert.");
+                return false;
+            }
+
+            drawer = new Drawer();
+
+            // start loading
+            loader.load();
+        }
+    </script>
+</head>
+<body onload="start()">
+
+<h2>POP Buffer Demo</h2>
+
+<p>Short description goes here...</p>
+
+<canvas id="mainCanvas"></canvas>
+
+
+</body>
+</html>
