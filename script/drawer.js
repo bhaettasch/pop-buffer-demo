@@ -82,7 +82,7 @@ Drawer.prototype.settings = {
 	ambientBrightness: 0.1,
 	directionalBrightness: 0.8,
 	// Speed and direction of animation
-	animationSpeed: 1
+	animationSpeed: 0.7
 };
 
 /**
@@ -139,6 +139,10 @@ Drawer.prototype.init = function() {
     
     // init lightning
     this.initLightning();
+
+    // Animation/rotation
+    this.animationStartTime = new Date().getTime();
+    this.tick();
 };
 
 /**
@@ -363,6 +367,24 @@ Drawer.prototype.prepareDraw = function() {
     mat4.multiply(this.mvMatrix, this.centerMatrix);
 
     this.setUniforms();
+};
+
+/**
+ * Wrapper function for rotating the model around X axis
+ *
+ * @param float deltaX rotation difference in x-direction
+ * @param float deltaY rotation difference in y-direction
+ */
+Drawer.prototype.rotate = function(deltaX, deltaY) {
+    var newRotationMatrix = mat4.create();
+    mat4.identity(newRotationMatrix);
+
+    mat4.rotate(newRotationMatrix, degToRad(deltaX / 8), [0, 1, 0]);
+    mat4.rotate(newRotationMatrix, degToRad(deltaY / 8), [1, 0, 0]);
+
+    mat4.multiply(newRotationMatrix, this.rotationMatrix, this.rotationMatrix);
+
+    this.draw();
 };
 
 /**
