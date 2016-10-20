@@ -16,36 +16,19 @@ Drawer.prototype.ready = false;
 Drawer.prototype.shaderProgram = {};
 
 /**
- * model-view matrix
+ * model-view matrix, projection matrix, centering matrix, rotation matrix
  */
 Drawer.prototype.mvMatrix = mat4.create();
-
-/**
- * projection matrix
- */
 Drawer.prototype.pMatrix = mat4.create();
-
-/**
- * matrix for centering the model in the viewport
- */
 Drawer.prototype.centerMatrix = mat4.create();
-
-/**
- * matrix for rotation of the model
- */
 Drawer.prototype.rotationMatrix = mat4.create();
 
 /**
- * Float32Arrays which hold the loaded data
+ * UInt16 Array and buffer to hold the loaded data
  */
-Drawer.prototype.vertexArray;
-Drawer.prototype.normalArray;
+Drawer.prototype.interleavedArray = null;
+Drawer.prototype.interleavedBuffer = null;
 
-/**
- * buffer to hold the buffered data
- */
-Drawer.prototype.vertexBuffer;
-Drawer.prototype.normalBuffer;
 
 /**
  * camera aperture angle
@@ -82,13 +65,13 @@ Drawer.prototype.settings = {
 	ambientBrightness: 0.1,
 	directionalBrightness: 0.8,
 	// Speed and direction of animation
-	animationSpeed: 0.7
+	animationSpeed: 0.4
 };
 
 /**
- * necesarry for calculation fps
+ * time of the last tick -- necessary for correct rotation at different framerates
  */
-Drawer.prototype.animationStartTime = 0;
+Drawer.prototype.lastTickTime = 0;
 
 /**
  * Initialization of Drawer
@@ -104,9 +87,25 @@ Drawer.prototype.init = function() {
     gl.viewportWidth = canvas.offsetWidth;
     gl.viewportHeight = canvas.offsetHeight;
 
+    // paint canvas white
     gl.clearColor(0.0, 0.0, 0.0, 0.0);
     gl.enable(gl.DEPTH_TEST);
-    
+
+    // bind min and max values for decoding in shader
+    gl.uniform3f(
+        this.shaderProgram.minValuesUniform,
+        model.xmin, model.ymin, model.zmin
+    );
+    gl.uniform3f(
+        this.shaderProgram.maxValuesUniform,
+        model.xmax, model.ymax, model.zmax
+    );
+
+    // create and bind array to hold the interleaved data
+    this.interleavedArray = new Uint16Array(4 * model.numVertices);
+    this.interleavedBuffer = this.initBuffer(4, model.numVertices);
+
+    // zoom factors to make sure the model fits into the canvas exactly
     var w = Math.max(model.xmax-model.xmin, model.ymax-model.ymin);
     this.largeness = Math.max(w, model.zmax-model.zmin);
     var d = (w/2) / Math.tan(degToRad(this.alpha/2)) + (model.zmax-model.zmin)/2 + 0.2*w;
@@ -118,30 +117,17 @@ Drawer.prototype.init = function() {
     this.clipping.far = -this.initialZ + this.largeness * 15;
     
     // init matrices
-    
     this.initPerspective();
-	
-    mat4.identity(this.centerMatrix);
-    
+	mat4.identity(this.centerMatrix);
     mat4.translate(this.centerMatrix, [(model.xmin-model.xmax)/2 - model.xmin, (model.ymin-model.ymax)/2 - model.ymin, 0]);
-    
     mat4.identity(this.mvMatrix);
     mat4.identity(this.rotationMatrix);
-    
-    this.vertexArray = new Float32Array(3 * model.numVertices);
-    this.normalArray = new Float32Array(3 * model.numVertices);
-    this.colorArray = new Float32Array(3 * model.numVertices);
-    
-    // assign buffers
-    this.vertexBuffer = this.initBuffer(3, model.numVertices);
-    this.normalBuffer = this.initBuffer(3, model.numVertices);
-    this.colorBuffer = this.initBuffer(3, model.numVertices);
-    
+
     // init lightning
     this.initLightning();
 
     // Animation/rotation
-    this.animationStartTime = new Date().getTime();
+    this.lastTickTime = new Date().getTime();
     this.tick();
 };
 
@@ -149,8 +135,8 @@ Drawer.prototype.init = function() {
  * Init shaders
  * Load shader program, combining both shaders (fragment and vertex shader)
  * 
- * @param String vs the vertex shader
- * @param String fs the fragment shader
+ * @param vs String the vertex shader
+ * @param fs String the fragment shader
  */
 Drawer.prototype.initShaders = function(vs, fs) {
 	
@@ -165,7 +151,7 @@ Drawer.prototype.initShaders = function(vs, fs) {
     gl.linkProgram(this.shaderProgram);
 
     if (!gl.getProgramParameter(this.shaderProgram, gl.LINK_STATUS)) {
-        console.log("Could not initialise shaders!");
+        console.log("Could not initialize shaders!");
     }
 
     //Activate program
@@ -177,9 +163,6 @@ Drawer.prototype.initShaders = function(vs, fs) {
     
     this.shaderProgram.vertexNormalAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexNormal");
     gl.enableVertexAttribArray(this.shaderProgram.vertexNormalAttribute);
-    
-    this.shaderProgram.vertexColorAttribute = gl.getAttribLocation(this.shaderProgram, "aVertexColor");
-    gl.enableVertexAttribArray(this.shaderProgram.vertexColorAttribute);
 
     //Set matrices
     this.shaderProgram.pMatrixUniform = gl.getUniformLocation(this.shaderProgram, "uPMatrix");
@@ -189,14 +172,16 @@ Drawer.prototype.initShaders = function(vs, fs) {
 	this.shaderProgram.lightingDirectionUniform = gl.getUniformLocation(this.shaderProgram, "uLightingDirection");
     this.shaderProgram.directionalColorUniform = gl.getUniformLocation(this.shaderProgram, "uDirectionalColor");
 
-    this.shaderProgram.useColor = gl.getUniformLocation(this.shaderProgram, "useColor");
+    //Bind min and max values for decoding in shader
+    this.shaderProgram.minValuesUniform = gl.getUniformLocation(this.shaderProgram, "uMinValues");
+    this.shaderProgram.maxValuesUniform = gl.getUniformLocation(this.shaderProgram, "uMaxValues");
 };
 
 /**
  * Get a shader program
  * 
- * @param Context gl context
- * @param String id name of the shader
+ * @param gl Context context
+ * @param id String name of the shader
  * @returns the compiled shader or null if an error occurred
  */
 Drawer.prototype.getShader = function(gl, id) {
@@ -273,57 +258,10 @@ Drawer.prototype.initBuffer = function(itemSize, numItems) {
  * @param data Data to append
  * @param offset Starting item (part of offset index calculation)
  * @param itemSize Count of entries per item (part of offset index calculation)
- * @param function transform strategy function which transforms the input data
  * 
  */
-Drawer.prototype.arrayAppend = function(array, data, offset, itemSize, transform) {
-	array.set(transform(data), offset * itemSize);
-};
-
-/**
- * transformVertices
- * 
- * @param data the array to transform
- * @return the transformed array
- */
-Drawer.prototype.transformVertices = function(data) {
-    
-    var typedArray = new Float32Array(new Uint16Array(data));
-    
-    // Scaling factor - expand from interval [0,1] to old coordinate size
-    xScale = model.xmax - model.xmin;
-    yScale = model.ymax - model.ymin;
-    zScale = model.zmax - model.zmin;
-    
-    // For every tripel of coordinates:
-    for(i = 0; i < typedArray.length; i+=3) 
-    {
-        // Undo expansion from [0,1] to whole unsigned int size [0,65535], rescale and move to old coordinate position
-        typedArray[i] = ((typedArray[i] / 65535) * xScale) + model.xmin;
-        typedArray[i+1] = ((typedArray[i+1] / 65535) * yScale) + model.ymin;
-        typedArray[i+2] = ((typedArray[i+2] / 65535) * zScale) + model.zmin;
-    }
-    
-    return typedArray;
-};
-
-/**
- * transformNormals
- * 
- * @param data the array to transform
- * @return the transformed array
- */
-Drawer.prototype.transformNormals = function(data) {
-    var typedArray = new Float32Array(new Uint16Array(data));
-    
-    // For every normal:
-    for(i = 0; i < typedArray.length; i++)
-    {
-        // Undo expansion and transform back to interval [-1,1]
-        typedArray[i] = ((typedArray[i] / 65535) - 0.5) * 2;
-    }
-    
-    return typedArray;
+Drawer.prototype.arrayAppend = function(array, data, offset, itemSize) {
+	array.set(data, offset * itemSize);
 };
 
 /**
@@ -333,7 +271,7 @@ Drawer.prototype.initLightning = function() {
 	//Copy ambient colors to shader programm
 	gl.uniform3f(
 		this.shaderProgram.ambientColorUniform,
-		0.0, 0.7, 0.3
+		0.0, 0.2, 0.7
 	);
 
 	//Direction of light
@@ -347,7 +285,7 @@ Drawer.prototype.initLightning = function() {
 	//Copy directional colors to shader programm
 	gl.uniform3f(
 		this.shaderProgram.directionalColorUniform,
-        0.0, 0.3, 0.2
+        0.0, 0.2, 0.5
 	);
 };
 
@@ -372,8 +310,8 @@ Drawer.prototype.prepareDraw = function() {
 /**
  * Wrapper function for rotating the model around X axis
  *
- * @param float deltaX rotation difference in x-direction
- * @param float deltaY rotation difference in y-direction
+ * @param deltaX float rotation difference in x-direction
+ * @param deltaY float rotation difference in y-direction
  */
 Drawer.prototype.rotate = function(deltaX, deltaY) {
     var newRotationMatrix = mat4.create();
@@ -397,9 +335,9 @@ Drawer.prototype.tick = function() {
 
     //Rotate and redraw frame
     var current = new Date().getTime();
-    var elapsed = current - drawer.animationStartTime;
+    var elapsed = current - drawer.lastTickTime;
 
-    drawer.animationStartTime = current;
+    drawer.lastTickTime = current;
     //Rotate (using elapsed time and speed factor)
     drawer.rotate(elapsed*drawer.settings.animationSpeed, 0);
 };
@@ -424,47 +362,24 @@ Drawer.prototype.setUniforms = function() {
  * Set vertex and normal data
  * Calls transformation and binds buffer
  *
- * @param ArrayBuffer vertices New vertices data to fill buffer with
- * @param ArrayBuffer normals New normals data to fill buffer with
- * @param ArrayBuffer colors New color data to fill buffer with
+ * @param interleavedData ArrayBuffer vertices New vertices data to fill buffer with
  */
-Drawer.prototype.setData = function(vertices, normals, colors) {
-    // Append data to vertices buffer...
-    this.arrayAppend(this.vertexArray, vertices, 0, this.vertexBuffer.itemSize, this.transformVertices);
+Drawer.prototype.setData = function(interleavedData) {
+    // Append data to buffer...
+    this.interleavedArray = interleavedData;
+    //this.arrayAppend(this.interleavedArray, interleavedData, 0, this.interleavedBuffer.itemSize);
 
-    // ...and bind
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.vertexArray, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(drawer.shaderProgram.vertexPositionAttribute, this.vertexBuffer.itemSize, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.interleavedBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, this.interleavedArray, gl.STATIC_DRAW);
 
-
-    // Append data to normal buffer...
-    this.arrayAppend(this.normalArray, normals, 0, this.normalBuffer.itemSize, this.transformNormals);
-
-    // ...and bind
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.normalBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.normalArray, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, this.normalBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
-
-    // Append data to color buffer...
-    if(model.colors != undefined && model.colors != false)
-        this.arrayAppend(this.colorArray, colors, 0, this.colorBuffer.itemSize, this.transformColors);
-
-    // ...and bind
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, this.colorArray, gl.STATIC_DRAW);
-    gl.vertexAttribPointer(this.shaderProgram.vertexColorAttribute, this.colorBuffer.itemSize, gl.FLOAT, false, 0, 0);
-
+    gl.vertexAttribPointer(drawer.shaderProgram.vertexPositionAttribute, 3, gl.UNSIGNED_SHORT, false, 8, 0);
+    gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, 2, gl.UNSIGNED_BYTE, false, 8, 6);
 
     // At least one chunk of data is loaded, thus the app can start drawing
     this.ready = true;
 
     this.draw();
-
-    // Load more data?
-    return -1;
-};
+}; 
 
 /**
  * Draw the scene.
@@ -477,5 +392,5 @@ Drawer.prototype.draw = function() {
         return false;
 
     this.prepareDraw();
-    gl.drawArrays(gl.TRIANGLES, 0, this.vertexBuffer.numItems);
+    gl.drawArrays(gl.TRIANGLES, 0, this.interleavedBuffer.numItems);
 };

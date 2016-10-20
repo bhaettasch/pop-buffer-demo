@@ -26,17 +26,21 @@
         uniform vec3 uAmbientColor;
         uniform vec3 uLightingDirection;
         uniform vec3 uDirectionalColor;
+        uniform vec3 uMinValues;
+        uniform vec3 uMaxValues;
         varying vec3 vLightWeighting;
         varying vec3 vVertexColor;
 
-        void main() {
-            gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
 
+        void main() {
+            // Transform coordinates back to original coordinates
+            vec3 transformedPosition = (aVertexPosition / vec3(65535)) * (uMaxValues - uMinValues) + uMinValues;
+            gl_Position = uPMatrix * uMVMatrix * vec4(transformedPosition, 1.0);
+
+            //TODO Fix normal transformation / decoding
             vec3 transformedNormal = uNMatrix * aVertexNormal;
             float directionalLightWeighting = max(dot(transformedNormal, uLightingDirection), 0.0);
-            vLightWeighting = clamp(uAmbientColor + uDirectionalColor * directionalLightWeighting, vec3(0.0), vec3(1.0));
-
-            vVertexColor = vec3(1.0);
+            vLightWeighting = clamp(uAmbientColor + uDirectionalColor * directionalLightWeighting, vec3(0.1), vec3(1.0));
         }
     </script>
 
@@ -45,10 +49,9 @@
         precision mediump float;
 
         varying vec3 vLightWeighting;
-        varying vec3 vVertexColor;
 
         void main() {
-            gl_FragColor = vec4(vVertexColor * vLightWeighting, 1.0);
+            gl_FragColor = vec4(vLightWeighting, 1.0);
         }
     </script>
 
@@ -69,7 +72,7 @@
             drawer = new Drawer();
 
             // start loading
-            loader.load();
+            loader.load("bunny.json");
         }
     </script>
 </head>
@@ -77,10 +80,9 @@
 
 <h2>POP Buffer Demo</h2>
 
-<p>Short description goes here...</p>
+<p>This is a sample implementation for the <a href="http://x3dom.org/pop/">POP Buffer</a> introduced by the team of <a href="http://x3dom.org">X3DOM</a> in 2013. It consists of a simple WebGL renderer and a small writing component that creates POP Buffer binaries from obj files.</p>
 
 <canvas id="mainCanvas"></canvas>
-
 
 </body>
 </html>
