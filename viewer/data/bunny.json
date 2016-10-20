@@ -1,0 +1,12 @@
+{
+"name": "bunny",
+"data": "bunny.pop",
+"numVertices": "208890",
+"xmin": -1.8938,
+"ymin": -0.340252,
+"zmin": -1.23747,
+"xmax": 1.22018,
+"ymax": 2.74642,
+"zmax": 1.17599,
+"factor": 65535
+}
