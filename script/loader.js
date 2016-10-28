@@ -26,6 +26,7 @@ loader.load = (function(fileName) {
 
             // ...init drawing component
             drawer.init();
+            drawer.vertexCount = model.numVertices;
 
             // ...and load vertices and normals
             loader.loadBinary(

@@ -73,6 +73,9 @@ Drawer.prototype.settings = {
  */
 Drawer.prototype.lastTickTime = 0;
 
+Drawer.prototype.vertexCount = 0;
+Drawer.prototype.vertexCountCurrent = 0;
+
 /**
  * Initialization of Drawer
  */
@@ -275,7 +278,7 @@ Drawer.prototype.initLightning = function() {
 	);
 
 	//Direction of light
-	var lightingDirection = [-0.25, -0.25, -1.0];
+	var lightingDirection = [0, 0, -1.0];
 	var adjustedLD = vec3.create();
 
 	vec3.normalize(lightingDirection, adjustedLD);
@@ -285,7 +288,7 @@ Drawer.prototype.initLightning = function() {
 	//Copy directional colors to shader programm
 	gl.uniform3f(
 		this.shaderProgram.directionalColorUniform,
-        0.0, 0.2, 0.5
+        0.9, 0.6, 0.0
 	);
 };
 
@@ -378,6 +381,8 @@ Drawer.prototype.setData = function(interleavedData) {
     // At least one chunk of data is loaded, thus the app can start drawing
     this.ready = true;
 
+    this.vertexCountCurrent = this.interleavedBuffer.numItems;
+    ui.refreshVertexCount();
     this.draw();
 }; 
 
@@ -392,5 +397,5 @@ Drawer.prototype.draw = function() {
         return false;
 
     this.prepareDraw();
-    gl.drawArrays(gl.TRIANGLES, 0, this.interleavedBuffer.numItems);
+    gl.drawArrays(gl.TRIANGLES, 0, this.vertexCountCurrent);
 };
