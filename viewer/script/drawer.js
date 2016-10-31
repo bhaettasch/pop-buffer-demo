@@ -278,7 +278,7 @@ Drawer.prototype.initLightning = function() {
 	);
 
 	//Direction of light
-	var lightingDirection = [0, 0, -1.0];
+	var lightingDirection = [0.0, 0.0, -1.0];
 	var adjustedLD = vec3.create();
 
 	vec3.normalize(lightingDirection, adjustedLD);
@@ -288,7 +288,7 @@ Drawer.prototype.initLightning = function() {
 	//Copy directional colors to shader programm
 	gl.uniform3f(
 		this.shaderProgram.directionalColorUniform,
-        0.9, 0.6, 0.0
+        0.0, 0.5, 0.0
 	);
 };
 
@@ -375,7 +375,7 @@ Drawer.prototype.setData = function(interleavedData) {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.interleavedBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, this.interleavedArray, gl.STATIC_DRAW);
 
-    gl.vertexAttribPointer(drawer.shaderProgram.vertexPositionAttribute, 3, gl.UNSIGNED_SHORT, false, 8, 0);
+    gl.vertexAttribPointer(this.shaderProgram.vertexPositionAttribute, 3, gl.UNSIGNED_SHORT, false, 8, 0);
     gl.vertexAttribPointer(this.shaderProgram.vertexNormalAttribute, 2, gl.UNSIGNED_BYTE, false, 8, 6);
 
     // At least one chunk of data is loaded, thus the app can start drawing
