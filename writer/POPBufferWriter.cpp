@@ -24,8 +24,8 @@ struct rec
 */
 struct minmax
 {
-	float minx, miny, minz;
-	float maxx, maxy, maxz;
+	float minx, miny, minz, minu, minv;
+	float maxx, maxy, maxz, maxu, maxv;
 };
 
 /*
@@ -35,6 +35,7 @@ struct entry
 {
 	float vx, vy, vz;
 	float nx, ny, nz;
+	float nu, nv;
 };
 
 struct float2 { float u, v; };
@@ -45,13 +46,37 @@ struct float3 { float x, y, z; };
 */
 
 //TODO Add conversion code here
+float wrapOctahedronNormalValue(float v1, float v2)
+{
+	return (1.0f - fabs(v2)) * (v1 >= 0.0f ? 1.0 : -1.0);
+}
+
+
+void encodeOctahedronNormal(float nx, float ny, float nz, float & octNorU, float & octNorV)
+{
+	float absSum = fabs(nx) + fabs(ny) + fabs(nz);
+
+	nx /= absSum;
+	ny /= absSum;
+
+	if (nz < 0.0f)
+	{
+		float tmp = nx;
+		nx = wrapOctahedronNormalValue(nx, ny);
+		ny = wrapOctahedronNormalValue(ny, tmp);
+	}
+
+	octNorU = nx * 0.5f + 0.5f;
+	octNorV = ny * 0.5f + 0.5f;
+}
 
 
 int main()
 {
 	const string inputfile = "models/bunny.obj";
 	const string modelName = "bunny";
-	const char* dataFileName = "out.pop";
+	const char* dataFileName = "bunny.pop";
+	const char* metaFileName = "bunny.json";
 
 
 	/*
@@ -68,6 +93,8 @@ int main()
 	/*
 		Parse obj file
 	*/
+	cout << "Reading file " << inputfile << endl;
+
 	tinyobj::attrib_t attrib;
 	std::vector<tinyobj::shape_t> shapes;
 	std::vector<tinyobj::material_t> materials;
@@ -126,9 +153,11 @@ int main()
 			if (e.vz < minMaxValues.minz) minMaxValues.minz = e.vz;
 			if (e.vz > minMaxValues.maxz) minMaxValues.maxz = e.vz;
 
+			// convert normals to octahedron normals
 			e.nx = attrib.normals[3 * idx.normal_index + 0];
 			e.ny = attrib.normals[3 * idx.normal_index + 1];
 			e.nz = attrib.normals[3 * idx.normal_index + 2];
+			encodeOctahedronNormal(e.nx, e.ny, e.nz, e.nu, e.nv);
 
 			entries.push_back(e);
 			counter++;
@@ -144,7 +173,7 @@ int main()
 
 	// Write meta values to meta data file
 	ofstream metaFile;
-	metaFile.open("out.json");
+	metaFile.open(metaFileName);
 	metaFile << "{\n";
 	metaFile << "\"name\": \"" << modelName << "\",\n";
 	metaFile << "\"data\": \"" << dataFileName << "\",\n";
@@ -166,11 +195,13 @@ int main()
 	for (i = 0;i < counter; i++)
 	{
 		entry e = entries[i];
+
 		r.x = floor((e.vx - minMaxValues.minx) / (minMaxValues.maxx - minMaxValues.minx) * USHRT_MAX);
 		r.y = floor((e.vy - minMaxValues.miny) / (minMaxValues.maxy - minMaxValues.miny) * USHRT_MAX);
 		r.z = floor((e.vz - minMaxValues.minz) / (minMaxValues.maxz - minMaxValues.minz) * USHRT_MAX);
-		r.u = 0;
-		r.v = 0;
+		r.u = floor(e.nu * UCHAR_MAX);
+		r.v = floor(e.nv * UCHAR_MAX);
+
 		fwrite(&r, sizeof(struct rec), 1, f);
 	}
 
