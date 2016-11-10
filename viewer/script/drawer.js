@@ -76,10 +76,14 @@ Drawer.prototype.lastTickTime = 0;
 Drawer.prototype.vertexCount = 0;
 Drawer.prototype.vertexCountCurrent = 0;
 
+Drawer.prototype.model = null;
+Drawer.prototype.currentLevel = 0;
+
 /**
  * Initialization of Drawer
  */
-Drawer.prototype.init = function() {
+Drawer.prototype.init = function(model) {
+    this.model = model;
 
     // get triangle shaders
     this.initShaders("triangle-vs", "triangle-fs");
@@ -366,11 +370,19 @@ Drawer.prototype.setUniforms = function() {
  * Calls transformation and binds buffer
  *
  * @param interleavedData ArrayBuffer vertices New vertices data to fill buffer with
+ * @param level level currently loaded
  */
-Drawer.prototype.setData = function(interleavedData) {
+Drawer.prototype.setData = function(interleavedData, level) {
+    var offset = (level == 1) ? 0 : model.levels[level-2];
+    var levelsize = (level == 1) ? model.levels[0] : (model.levels[level-1] - model.levels[level-2]);
+
     // Append data to buffer...
-    this.interleavedArray = interleavedData;
-    //this.arrayAppend(this.interleavedArray, interleavedData, 0, this.interleavedBuffer.itemSize);
+    this.interleavedArray.set(
+        // Make sure the buffer only contains the data for this level
+        interleavedData.subarray(0, levelsize * this.interleavedBuffer.itemSize),
+        // Insert after the current data
+        offset * this.interleavedBuffer.itemSize
+    );
 
     gl.bindBuffer(gl.ARRAY_BUFFER, this.interleavedBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, this.interleavedArray, gl.STATIC_DRAW);
@@ -381,7 +393,7 @@ Drawer.prototype.setData = function(interleavedData) {
     // At least one chunk of data is loaded, thus the app can start drawing
     this.ready = true;
 
-    this.vertexCountCurrent = this.interleavedBuffer.numItems;
+    this.vertexCountCurrent = offset + levelsize; //this.interleavedBuffer.numItems;
     ui.refreshVertexCount();
     this.draw();
 }; 
@@ -398,4 +410,15 @@ Drawer.prototype.draw = function() {
 
     this.prepareDraw();
     gl.drawArrays(gl.TRIANGLES, 0, this.vertexCountCurrent);
+};
+
+Drawer.prototype.setLevel = function(level) {
+    if(loader.currentLevel < level)
+        this.currentLevel = loader.currentLevel;
+    else
+        this.currentLevel = level;
+
+    this.vertexCountCurrent = model.levels[this.currentLevel-1];
+    ui.refreshVertexCount();
+    this.draw();
 };
