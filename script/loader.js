@@ -10,6 +10,8 @@ var loader = {};
  */
 loader.path = "data/";
 
+loader.currentlyLoaded = 0;
+
 /**
  * Load data
  */
@@ -25,17 +27,13 @@ loader.load = (function(fileName) {
             model = JSON.parse(this.responseText);
 
             // ...init drawing component
-            drawer.init();
+            drawer.init(model);
             drawer.vertexCount = model.numVertices;
 
+            ui.createSlider(model.levelCount);
+
             // ...and load vertices and normals
-            loader.loadBinary(
-                loader.path+model.data,
-                function(arrayBuffer){
-                    drawer.setData(arrayBuffer);
-                },
-                false
-            );
+            loader.loadLevel();
         }
     };
 
@@ -44,15 +42,52 @@ loader.load = (function(fileName) {
 });
 
 /**
+ * Load vertices and normals
+ */
+loader.loadLevel = function () {
+    if(loader.currentlyLoaded < model.levelCount)
+    {
+        var begin = (loader.currentlyLoaded == 0) ? 0 : model.levels[loader.currentlyLoaded-1];
+        var end = model.levels[loader.currentlyLoaded];
+
+        loader.loadBinary(
+            loader.path+model.data,
+            function(arrayBuffer){
+                loader.currentlyLoaded++;
+                drawer.setData(new Uint16Array(arrayBuffer), loader.currentlyLoaded);
+                loader.loadLevel();
+            },
+            true,
+            begin,
+            end,
+            8
+        );
+    }
+};
+
+/**
  * Load binary data as arraybuffer and process with given method
- * 
+ *
  * @param url Url of the ressource to load
  * @param onload Method to be called with arraybuffer data after load
+ * @param partial Perform a partial request?
+ * @param begin Index of the first item to load
+ * @param end Index of the last item to load
+ * @param byteCount Count of bytes to load per item
  */
-loader.loadBinary = (function(url, onload, partial, begin, end, byteCount, itemSize) {
+loader.loadBinary = (function(url, onload, partial, begin, end, byteCount) {
 	//create request
 	var oReq = new XMLHttpRequest();
 	oReq.open("GET", url, true);
+
+    if(partial)
+    {
+        begin = begin * byteCount;
+        end = (end * byteCount)-1;
+
+        // Set partial load header
+        oReq.setRequestHeader("Range","bytes="+begin+"-"+end)
+    }
 
 	oReq.responseType = "arraybuffer";
 	
