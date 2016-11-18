@@ -372,9 +372,20 @@ Drawer.prototype.setUniforms = function() {
  * @param interleavedData ArrayBuffer vertices New vertices data to fill buffer with
  * @param level level currently loaded
  */
-Drawer.prototype.setData = function(interleavedData, level) {
-    var offset = (level == 1) ? 0 : model.levels[level-2];
-    var levelsize = (level == 1) ? model.levels[0] : (model.levels[level-1] - model.levels[level-2]);
+Drawer.prototype.setData = function(interleavedData, partial, level) {
+    var offset;
+    var levelsize;
+
+    if(partial)
+    {
+        offset = (level == 1) ? 0 : model.levels[level-2];
+        levelsize = (level == 1) ? model.levels[0] : (model.levels[level-1] - model.levels[level-2]);
+            }
+    else
+    {
+        offset = 0;
+        levelsize = model.levels[model.levelCount-1];
+    }
 
     // Append data to buffer...
     this.interleavedArray.set(

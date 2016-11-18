@@ -49,18 +49,33 @@ loader.loadLevel = function () {
     {
         var begin = (loader.currentlyLoaded == 0) ? 0 : model.levels[loader.currentlyLoaded-1];
         var end = model.levels[loader.currentlyLoaded];
+        var byteCount = 8;
 
         loader.loadBinary(
             loader.path+model.data,
             function(arrayBuffer){
-                loader.currentlyLoaded++;
-                drawer.setData(new Uint16Array(arrayBuffer), loader.currentlyLoaded);
-                loader.loadLevel();
+                // Does the answer contain only the requested range of bytes?
+                if(arrayBuffer.byteLength == (end-begin)*byteCount)
+                {
+                    loader.currentlyLoaded++;
+
+                    // Add this data to the data to display...
+                    drawer.setData(new Uint16Array(arrayBuffer), true, loader.currentlyLoaded);
+                    // ...and load the next level
+                    loader.loadLevel();
+                }
+                // Otherwise:
+                else
+                {
+                    loader.currentlyLoaded = model.levelCount;
+                    // Set all the data at once and finish loading
+                    drawer.setData(new Uint16Array(arrayBuffer), false, -1);
+                }
             },
             true,
             begin,
             end,
-            8
+            byteCount
         );
     }
 };
