@@ -1,7 +1,9 @@
 POP Buffer Demo
 ===============
 
-This is a sample implementation for thePOP Buffer introduced by the team of X3DOM in 2013. It consists of a simple WebGL renderer and a small writing component that creates POP Buffer binaries from obj files.
+This is a sample implementation for the POP Buffer introduced by the team of X3DOM in 2013. It consists of a simple WebGL renderer and a small writing component that creates POP Buffer binaries from obj files.
+
+Attention: This is currently **Work in Progress**. The implementation currently **does not fullfill the specification of the pop buffer**.
 
 POP Buffer: 
 http://x3dom.org/pop/
