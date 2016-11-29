@@ -10,13 +10,21 @@
 #include <fstream>
 using namespace std;
 
+static const unsigned int maxLevel = 16;
+static std::vector<unsigned short> PRECOMPUTED_MASKS;
+
+const string inputfile = "models/bunny.obj";
+const string modelName = "bunny";
+const char* dataFileName = "bunny.pop";
+const char* metaFileName = "bunny.json";
+
 /*
 	Structure to hold a record that should be written to file
 */
 struct rec
 {
-	short x, y, z;
-	char u, v;
+	unsigned short x, y, z;
+	unsigned char u, v;
 };
 
 /*
@@ -38,14 +46,10 @@ struct entry
 	float nu, nv;
 };
 
-struct float2 { float u, v; };
-struct float3 { float x, y, z; };
-
 /*
 	Octahedron normal coding
 */
 
-//TODO Add conversion code here
 float wrapOctahedronNormalValue(float v1, float v2)
 {
 	return (1.0f - fabs(v2)) * (v1 >= 0.0f ? 1.0 : -1.0);
@@ -58,6 +62,7 @@ void encodeOctahedronNormal(float nx, float ny, float nz, float & octNorU, float
 
 	nx /= absSum;
 	ny /= absSum;
+	//nz /= absSum; //will always be positive
 
 	if (nz < 0.0f)
 	{
@@ -70,28 +75,41 @@ void encodeOctahedronNormal(float nx, float ny, float nz, float & octNorU, float
 	octNorV = ny * 0.5f + 0.5f;
 }
 
+/*
+	Transfer coordinate into level precision
+*/
+int to_level(int val, int level)
+{
+	return floor(val/double(PRECOMPUTED_MASKS[level]));
+}
 
+/*
+	Compares two coordinates for equality (on a given precision level)
+*/
+bool is_equal(rec r1, rec r2, int level)
+{
+	return	to_level(r1.x, level) == to_level(r2.x, level) &&
+			to_level(r1.y, level) == to_level(r2.y, level) &&
+			to_level(r1.z, level) == to_level(r2.z, level) ;
+}
+
+/*
+	Checks whether a triangle is degenerated (at least two coordinates are the same on the given precision level)
+*/
+bool is_degenerated(rec r0, rec r1, rec r2, int level)
+{
+	return is_equal(r0, r1, level) || is_equal(r1, r2, level) || is_equal(r0, r2, level);
+}
+
+/*
+	Main method: Encode the given model into pop format and output a binary and a json-formatted meta file
+*/
 int main()
 {
-	const string inputfile = "models/bunny.obj";
-	const string modelName = "bunny";
-	const char* dataFileName = "bunny.pop";
-	const char* metaFileName = "bunny.json";
-
-
 	/*
-		Prepare output file
-	*/
-	int i;
-	FILE *f;
-	struct rec r;
-	fopen_s(&f, dataFileName, "wb");
-	if (!f)
-		return 1;
-
-
-	/*
+		-----------------------------------------------------------------------------------------------------------------------
 		Parse obj file
+		-----------------------------------------------------------------------------------------------------------------------
 	*/
 	cout << "Reading file " << inputfile << endl;
 
@@ -127,8 +145,11 @@ int main()
 	minMaxValues.maxz = -HUGE_VALF;
 
 
+
 	/*
-		Loop over file content and create output
+		-----------------------------------------------------------------------------------------------------------------------
+		Loop over file content and store entries
+		-----------------------------------------------------------------------------------------------------------------------
 	*/
 	size_t index_offset = 0;
 	for (size_t f = 0; f < shapes[0].mesh.num_face_vertices.size(); f++) {
@@ -171,7 +192,73 @@ int main()
 	std::cout << "MinX: " << minMaxValues.minx << " MinY:" << minMaxValues.miny << " MinZ: " << minMaxValues.minz << std::endl;
 
 
-	// Write meta values to meta data file
+
+	/*
+		-----------------------------------------------------------------------------------------------------------------------
+		Sort into levels
+		-----------------------------------------------------------------------------------------------------------------------
+	*/
+
+	// Precompute precision masks
+	{
+		PRECOMPUTED_MASKS.clear();
+
+		for (int i = 0; i < maxLevel; i++)
+		{
+			PRECOMPUTED_MASKS.push_back(pow(2, (maxLevel - i - 1)));
+		}
+	}
+
+	// Create buckets for every level
+	std::vector<std::vector<rec>> buckets(maxLevel, std::vector<rec>(0));
+	
+	// Create records for each entry (normalized to range of unsigned short)
+	// and store them in the correct bucket
+	for (int i = 0;i < counter; i+= 3)
+	{
+		rec triangle[3]; 
+
+		// Transform triangle vertices
+		for (int k = 0;k < 3;k++)
+		{
+			entry e = entries[i+k];
+
+			triangle[k].x = floor((e.vx - minMaxValues.minx) / (minMaxValues.maxx - minMaxValues.minx) * USHRT_MAX);
+			triangle[k].y = floor((e.vy - minMaxValues.miny) / (minMaxValues.maxy - minMaxValues.miny) * USHRT_MAX);
+			triangle[k].z = floor((e.vz - minMaxValues.minz) / (minMaxValues.maxz - minMaxValues.minz) * USHRT_MAX);
+			triangle[k].u = floor(e.nu * UCHAR_MAX);
+			triangle[k].v = floor(e.nv * UCHAR_MAX);
+		}
+
+
+		// Find the pop up level for this triangle
+		int level = maxLevel - 1;
+		for (int l = 0;l < maxLevel;l++)
+		{
+			if (!is_degenerated(triangle[0], triangle[1], triangle[2], l))
+			{
+				level = l;
+				break;
+			}
+		}
+		
+		// Store in the correct bucket
+		for (int k = 0;k < 3;k++)
+		{
+			buckets[level].push_back(triangle[k]);
+		}
+	}
+
+	
+
+	/*
+		-----------------------------------------------------------------------------------------------------------------------
+		Write meta values to meta data file
+		-----------------------------------------------------------------------------------------------------------------------
+	*/
+
+	int sum = 0;
+
 	ofstream metaFile;
 	metaFile.open(metaFileName);
 	metaFile << "{\n";
@@ -184,29 +271,46 @@ int main()
 	metaFile << "\"xmax\": " << minMaxValues.maxx << ",\n";
 	metaFile << "\"ymax\": " << minMaxValues.maxy << ",\n";
 	metaFile << "\"zmax\": " << minMaxValues.maxz << ",\n";
-	metaFile << "\"factor\": " << USHRT_MAX << "\n";
-	metaFile << "}\n";
+	metaFile << "\"factor\": " << USHRT_MAX << ",\n";
+	metaFile << "\"levelCount\": " << maxLevel << ",\n";
+	metaFile << "\"levels\": [";
+	for (int l = 0;l < maxLevel-1;l++)
+	{
+		int current = buckets[l].size();
+		sum += current;
+		metaFile << sum << ",";
+	}
+	metaFile << sum + buckets[maxLevel-1].size() << "]\n}\n";
 	metaFile.close();
 
-
+	
 	/*
-		Write new values (normalized to range of unsigned short)
+		-----------------------------------------------------------------------------------------------------------------------
+		Write new values (sorted by buckets)
+		-----------------------------------------------------------------------------------------------------------------------
 	*/
-	for (i = 0;i < counter; i++)
+
+	// Prepare output file
+	FILE *f;
+	struct rec r;
+	fopen_s(&f, dataFileName, "wb");
+	if (!f)
+		return 1;
+
+	//For each bucket...
+	for (int b = 0;b < maxLevel; b++)
 	{
-		entry e = entries[i];
+		vector<rec> bucket = buckets[b];
 
-		r.x = floor((e.vx - minMaxValues.minx) / (minMaxValues.maxx - minMaxValues.minx) * USHRT_MAX);
-		r.y = floor((e.vy - minMaxValues.miny) / (minMaxValues.maxy - minMaxValues.miny) * USHRT_MAX);
-		r.z = floor((e.vz - minMaxValues.minz) / (minMaxValues.maxz - minMaxValues.minz) * USHRT_MAX);
-		r.u = floor(e.nu * UCHAR_MAX);
-		r.v = floor(e.nv * UCHAR_MAX);
-
-		fwrite(&r, sizeof(struct rec), 1, f);
+		// ...write transformed triangle vertices
+		for (int i = 0;i < bucket.size();i++)
+		{
+			rec r = bucket[i];
+			fwrite(&r, sizeof(struct rec), 1, f);
+		}
 	}
 
 
 	std::cout << "Exported " << counter << " vertices" << std::endl;
 	fclose(f);
-	cin.get();
 }
