@@ -20,6 +20,8 @@
         attribute vec3 aVertexPosition;
         attribute vec2 aVertexNormal;
 
+        uniform int uClusterFactor;
+
         uniform mat4 uMVMatrix;
         uniform mat4 uPMatrix;
         uniform mat3 uNMatrix;
@@ -43,7 +45,7 @@
 
         void main() {
             // Transform coordinates back to original coordinates
-            vec3 transformedPosition = (aVertexPosition / vec3(65535)) * (uMaxValues - uMinValues) + uMinValues;
+            vec3 transformedPosition = floor(aVertexPosition / vec3(uClusterFactor)) * vec3(uClusterFactor) / vec3(65535) * (uMaxValues - uMinValues) + uMinValues;
             gl_Position = uPMatrix * uMVMatrix * vec4(transformedPosition, 1.0);
 
             // Decode and transform normal

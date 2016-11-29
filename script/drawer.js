@@ -78,6 +78,7 @@ Drawer.prototype.vertexCountCurrent = 0;
 
 Drawer.prototype.model = null;
 Drawer.prototype.currentLevel = 0;
+Drawer.prototype.clusteringFactor = 1;
 
 /**
  * Initialization of Drawer
@@ -182,6 +183,8 @@ Drawer.prototype.initShaders = function(vs, fs) {
     //Bind min and max values for decoding in shader
     this.shaderProgram.minValuesUniform = gl.getUniformLocation(this.shaderProgram, "uMinValues");
     this.shaderProgram.maxValuesUniform = gl.getUniformLocation(this.shaderProgram, "uMaxValues");
+
+    this.shaderProgram.clusteringFactorUniform = gl.getUniformLocation(this.shaderProgram, "uClusterFactor");
 };
 
 /**
@@ -363,6 +366,8 @@ Drawer.prototype.setUniforms = function() {
     mat4.toInverseMat3(this.mvMatrix, normalMatrix);
     mat3.transpose(normalMatrix);
     gl.uniformMatrix3fv(this.shaderProgram.nMatrixUniform, false, normalMatrix);
+
+    gl.uniform1i(this.shaderProgram.clusteringFactorUniform, this.clusteringFactor);
 };
 
 /**
@@ -430,6 +435,7 @@ Drawer.prototype.setLevel = function(level) {
         this.currentLevel = level;
 
     this.vertexCountCurrent = model.levels[this.currentLevel-1];
+    this.clusteringFactor = Math.pow(2, 16-this.currentLevel);
     ui.refreshVertexCount();
     this.draw();
 };
