@@ -5,13 +5,23 @@ This is a sample implementation for the POP Buffer introduced by the team of X3D
 
 Attention: This is currently **Work in Progress**. The implementation currently **does not fullfill the specification of the pop buffer**.
 
-POP Buffer: 
-http://x3dom.org/pop/
+POP Buffer:
 
-X3DOM: 
-https://github.com/x3dom 
-http://x3dom.org
+- http://x3dom.org/pop/
 
+X3DOM:
+
+- https://github.com/x3dom 
+- http://x3dom.org
+
+## Example ##
+
+![](doc/level_raw.png)
+![](doc/level_middle.png)
+![](doc/level_finer.png)
+![](doc/level_finest.png)
+
+Bunny model with i) 1410 ii) 5826 iii) 78876 and iv) 208884 of overall 208890 vertices (reordered) and active vertex clustering.
 
 License
 -------
