@@ -93,23 +93,82 @@
             loader.load(modelName+".json");
         }
     </script>
+    <style type="text/css">
+        body {
+            margin:0;
+            padding:0;
+            overflow:hidden;
+        }
+
+        #mainTitle {
+            position: absolute;
+            top: 50px;
+            left: 50px;
+            margin:0;
+        }
+
+        #mainCanvas {
+            border:none;
+            position: absolute;
+            left: 0;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            height: 100%;
+        }
+
+        #mainDescription {
+            position: absolute;
+            bottom: 30px;
+            left: 50px;
+            background-color: #CCCCCC;
+            padding: 15px;
+            right:50px;
+        }
+
+        #mainSettingsBox {
+            position:absolute;
+            top: 50px;
+            right: 50px;
+            border:1px dotted #CCCCCC;
+            padding:0 20px 0 20px;
+            width:300px;
+        }
+
+        #vertexCountProgressBar {
+            width: 100%;
+        }
+
+        #levelSlider {
+            width: 100%;
+        }
+    </style>
 </head>
 <body onload="start()">
 
-<h2>POP Buffer Demo</h2>
-
-<p>This is a sample implementation for the <a href="http://x3dom.org/pop/">POP Buffer</a> introduced by the team of <a href="http://x3dom.org">X3DOM</a> in 2013. It consists of a simple WebGL renderer and a small writing component that creates POP Buffer binaries from obj files.</p>
+<h1 id="mainTitle">POP Buffer Demo</h1>
 
 <canvas id="mainCanvas"></canvas>
 
-<div style="margin-top: 50px;">
-    <table>
-        <tr><td>Level:</td><td id="levelSliderContainer"></td></tr>
-        <tr><td>Current Vertex Count:</td><td id="currentVertexCount"></td></tr>
-        <tr><td>Overall Vertex Count:</td><td id="vertexCount"></td></tr>
-    </table>
+<p id="mainDescription">
+    This is a sample implementation for the <a href="http://x3dom.org/pop/">POP Buffer</a> introduced by the team of <a href="http://x3dom.org">X3DOM</a> in 2013. It consists of a simple WebGL renderer and a small writing component that creates POP Buffer binaries from obj files.
+</p>
 
+<div id="mainSettingsBox">
+    <h3>Vertices:</h3>
     <progress id="vertexCountProgressBar" max="0" value="0"></progress>
+
+    <p style="text-align: center">
+        <span id="currentVertexCount"></span> / <span id="vertexCount"></span>
+    </p>
+
+    <h3>Level:</h3>
+
+    <input id="levelSlider" type="range" min="1" max="1" value="1" />
+
+    <p style="text-align: center">
+        <span id="currentLevel">0</span> / <span id="levelCount"></span>
+    </p>
 </div>
 
 </body>

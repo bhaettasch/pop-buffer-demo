@@ -116,7 +116,7 @@ Drawer.prototype.init = function(model) {
     // zoom factors to make sure the model fits into the canvas exactly
     var w = Math.max(model.xmax-model.xmin, model.ymax-model.ymin);
     this.largeness = Math.max(w, model.zmax-model.zmin);
-    var d = (w/2) / Math.tan(degToRad(this.alpha/2)) + (model.zmax-model.zmin)/2 + 0.2*w;
+    var d = (w/2) / Math.tan(degToRad(this.alpha/2)) + (model.zmax-model.zmin)/2 + 0.5*w;
 	this.initialZ = -d;
     this.currentZ = -d;
     
@@ -412,7 +412,6 @@ Drawer.prototype.setData = function(interleavedData, partial, level) {
 
     this.vertexCountCurrent = offset + levelsize; //this.interleavedBuffer.numItems;
     ui.refreshVertexCount();
-    ui.setSliderLevel(level);
     this.setLevel(level);
 }; 
 
@@ -435,6 +434,8 @@ Drawer.prototype.setLevel = function(level) {
         this.currentLevel = loader.currentLevel;
     else
         this.currentLevel = level;
+
+    ui.setSliderLevel(level);
 
     this.vertexCountCurrent = model.levels[this.currentLevel-1];
     this.clusteringFactor = Math.pow(2, 16-this.currentLevel);
