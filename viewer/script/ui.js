@@ -6,8 +6,13 @@
 var ui = {};
 
 ui.refreshVertexCount = function() {
-  document.getElementById('currentVertexCount').innerHTML = drawer.vertexCountCurrent;
-  document.getElementById('vertexCount').innerHTML = drawer.vertexCount;
+    var pbar = document.getElementById('vertexCountProgressBar');
+
+    document.getElementById('currentVertexCount').innerHTML = drawer.vertexCountCurrent;
+    pbar.value = drawer.vertexCountCurrent;
+
+    document.getElementById('vertexCount').innerHTML = drawer.vertexCount;
+    pbar.max = drawer.vertexCount;
 };
 
 ui.createSlider = function (levelCount) {
