@@ -385,11 +385,12 @@ Drawer.prototype.setData = function(interleavedData, partial, level) {
     {
         offset = (level == 1) ? 0 : model.levels[level-2];
         levelsize = (level == 1) ? model.levels[0] : (model.levels[level-1] - model.levels[level-2]);
-            }
+    }
     else
     {
         offset = 0;
         levelsize = model.levels[model.levelCount-1];
+        level = model.levelCount;
     }
 
     // Append data to buffer...
@@ -411,7 +412,8 @@ Drawer.prototype.setData = function(interleavedData, partial, level) {
 
     this.vertexCountCurrent = offset + levelsize; //this.interleavedBuffer.numItems;
     ui.refreshVertexCount();
-    this.draw();
+    ui.setSliderLevel(level);
+    this.setLevel(level);
 }; 
 
 /**

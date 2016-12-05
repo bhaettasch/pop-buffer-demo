@@ -11,8 +11,12 @@ ui.refreshVertexCount = function() {
 };
 
 ui.createSlider = function (levelCount) {
-  document.getElementById('levelSliderContainer').innerHTML = '<input id="levelSlider" type="range" min="1" max="'+levelCount+'" value="'+levelCount+'">';
+  document.getElementById('levelSliderContainer').innerHTML = '<input id="levelSlider" type="range" min="1" max="'+levelCount+'" value="1">';
   document.getElementById('levelSlider').onchange = function () {
     drawer.setLevel(this.value);
   }
+};
+
+ui.setSliderLevel = function (level) {
+  document.getElementById('levelSlider').value = level;
 };
