@@ -30,7 +30,7 @@ loader.load = (function(fileName) {
             drawer.init(model);
             drawer.vertexCount = model.numVertices;
 
-            ui.createSlider(model.levelCount);
+            ui.bindSlider(model.levelCount);
 
             // ...and load vertices and normals
             loader.loadLevel();

@@ -15,13 +15,17 @@ ui.refreshVertexCount = function() {
     pbar.max = drawer.vertexCount;
 };
 
-ui.createSlider = function (levelCount) {
-  document.getElementById('levelSliderContainer').innerHTML = '<input id="levelSlider" type="range" min="1" max="'+levelCount+'" value="1">';
-  document.getElementById('levelSlider').onchange = function () {
-    drawer.setLevel(this.value);
-  }
+ui.bindSlider = function (levelCount) {
+    document.getElementById('levelCount').innerHTML = levelCount;
+
+    var slider = document.getElementById('levelSlider');
+    slider.max = levelCount;
+    slider.onchange = function () {
+        drawer.setLevel(this.value);
+    }
 };
 
 ui.setSliderLevel = function (level) {
-  document.getElementById('levelSlider').value = level;
+    document.getElementById('levelSlider').value = level;
+    document.getElementById('currentLevel').innerHTML = level;
 };
